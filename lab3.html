@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    body {
+        font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+        max-width: 800px;
+        margin: 20px auto;
+    }
+
+    .post {
+        border: 1px solid #999;
+        padding: 10px;
+        margin: 10px 0;
+        position: relative;
+    }
+
+    .post-header {
+        font-size: 14px;
+        margin-bottom: 5px;
+    }
+
+    .remove {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        color: red;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    form {
+        border-top: 2px solid #ccc;
+        padding-top: 15px;
+        margin-top: 20px;
+    }
+
+    label {
+        display: block;
+        margin: 8px 0 4px;
+    }
+
+    select,
+    input,
+    textarea {
+        width: 100%;
+        padding: 5px;
+        box-sizing: border-box;
+    }
+
+    textarea {
+        resize: vertical;
+    }
+
+    button {
+        margin-top: 10px;
+        padding: 8px 15px;
+        cursor: pointer;
+    }
+</style>
+
+<body>
+
+    <h2>My Travel Posts</h2>
+    <div id="posts"></div>
+
+    <form id="postForm">
+        <label for="country">Country</label>
+        <select id="country" name="country"></select>
+
+        <label for="date">Date</label>
+        <input type="date" id="date" name="date">
+
+        <label for="message">Message</label>
+        <textarea id="message" name="message" rows="4"></textarea>
+
+        <button type="submit">Создать</button>
+    </form>
+
+    <script>
+        const postsContainer = document.getElementById('posts');
+        const form = document.getElementById('postForm');
+        const countrySelect = document.getElementById('country');
+        const dateInput = document.getElementById('date');
+        const messageInput = document.getElementById('message');
+
+        const fallbackCountries = [
+            { name: "Kazakhstan", flag: "🇰🇿" },
+            { name: "Russia", flag: "🇷🇺" },
+            { name: "USA", flag: "🇺🇸" },
+            { name: "France", flag: "🇫🇷" },
+            { name: "Germany", flag: "🇩🇪" }
+        ];
+        async function loadCountries() {
+            try {
+                const res = await fetch('https://restcountries.com/v3.1/all');
+                if (!res.ok) throw new Error("Ошибка запроса: " + res.status);
+                const data = await res.json();
+
+                if (!Array.isArray(data)) throw new Error("Некорректный ответ API");
+
+                data.sort((a, b) => a.name.common.localeCompare(b.name.common));
+                data.forEach(c => {
+                    const option = document.createElement('option');
+                    option.value = c.name.common;
+                    option.textContent = `${c.flag || ''} ${c.name.common}`;
+                    option.dataset.flag = c.flag || '';
+                    countrySelect.appendChild(option);
+                });
+            } catch (err) {
+                console.warn("API не доступен, используем резервный список:", err.message);
+                fallbackCountries.forEach(c => {
+                    const option = document.createElement('option');
+                    option.value = c.name;
+                    option.textContent = `${c.flag} ${c.name}`;
+                    option.dataset.flag = c.flag;
+                    countrySelect.appendChild(option);
+                });
+            }
+        }
+
+        function loadPosts() {
+            postsContainer.innerHTML = '';
+            const posts = JSON.parse(localStorage.getItem('posts')) || [];
+            posts.forEach((post, index) => renderPost(post, index));
+        }
+        function savePosts(posts) {
+            localStorage.setItem('posts', JSON.stringify(posts));
+        }
+        function renderPost(post, index) {
+            const div = document.createElement('div');
+            div.className = 'post';
+            div.innerHTML = `
+        <div class="post-header">
+          <strong>Post #${index + 1}</strong> at ${post.date} being in: 
+          <b>${post.country}</b> ${post.flag || ''}
+          <span class="remove" onclick="removePost(${index})">✖ Remove</span>
+        </div>
+        <div>${post.message}</div>
+      `;
+            postsContainer.appendChild(div);
+        }
+
+        function removePost(index) {
+            if (!confirm("Вы действительно хотите удалить эту запись?")) return;
+            const posts = JSON.parse(localStorage.getItem('posts')) || [];
+            posts.splice(index, 1);
+            savePosts(posts);
+            loadPosts();
+        }
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            const country = countrySelect.value;
+            const flag = countrySelect.selectedOptions[0].dataset.flag || '';
+            const date = dateInput.value;
+            const message = messageInput.value;
+
+            if (!country || !date || !message) {
+                return alert("Заполните все поля!");
+            }
+
+            const newPost = { country, flag, date, message };
+            const posts = JSON.parse(localStorage.getItem('posts')) || [];
+            posts.push(newPost);
+            savePosts(posts);
+            loadPosts();
+
+            form.reset();
+        });
+
+        loadCountries();
+        loadPosts();
+    </script>
+</body>
+
+</html>
